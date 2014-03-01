@@ -1,0 +1,328 @@
+comment "QEMU requires a toolchain with threads"
+	depends on BR2_i386 || BR2_x86_64
+	depends on !BR2_TOOLCHAIN_HAS_THREADS
+
+menuconfig BR2_PACKAGE_QEMU
+	bool "QEMU"
+	depends on BR2_i386 || BR2_x86_64
+	depends on BR2_TOOLCHAIN_HAS_THREADS
+	select BR2_PACKAGE_LIBGLIB2
+	select BR2_PACKAGE_PIXMAN
+	select BR2_PACKAGE_ZLIB
+	help
+	  QEMU is a generic and open source machine emulator and virtualizer.
+
+	  When used as a machine emulator, QEMU can run OSes and programs made
+	  for one machine (e.g. an ARM board) on a different machine (e.g.
+	  your own PC). By using dynamic translation, it achieves very good
+	  performance.
+
+	  When used as a virtualizer, QEMU achieves near native performances
+	  by executing the guest code directly on the host CPU. QEMU supports
+	  virtualization when executing under the Xen hypervisor or using the
+	  KVM kernel module in Linux. When using KVM, QEMU can virtualize x86,
+	  server and embedded PowerPC, and S390 guests.
+
+	  http://qemu.org/
+
+if BR2_PACKAGE_QEMU
+
+comment "Emulators selection"
+
+config BR2_PACKAGE_QEMU_CUSTOM_TARGETS
+	string "Enable specific targets"
+	help
+	  Enter here the list of QEMU targets you want to build. For example:
+
+	    System emulation      | User-land emulation
+	    ----------------------+-----------------------
+	    i386-softmmu          | i386-linux-user
+	    arm-softmmu           | ppc-linux-user
+	    x86_64-softmmu        | sparc-bsd-user
+	    ...                   | ...
+
+config QEMU_FOO
+	bool # To break the indentation
+
+if BR2_PACKAGE_QEMU_CUSTOM_TARGETS = ""
+
+comment "... or you can select emulator families to enable, below:"
+
+config BR2_PACKAGE_QEMU_SYSTEM
+	bool "Enable all systems emulation"
+	help
+	  Say 'y' to build all system emulators/virtualisers that QEMU supports.
+
+config BR2_PACKAGE_QEMU_LINUX_USER
+	bool "Enable all Linux user-land emulation"
+	help
+	  Say 'y' to build all Linux user-land emulators that QEMU supports.
+
+# Note: bsd-user can not be build on Linux
+
+endif # BR2_PACKAGE_QEMU_CUSTOM_TARGETS == ""
+
+config QEMU_HAS_EMULS
+    def_bool y
+    depends on BR2_PACKAGE_QEMU_SYSTEM || BR2_PACKAGE_QEMU_LINUX_USER || BR2_PACKAGE_QEMU_CUSTOM_TARGETS != ""
+
+config BR2_PACKAGE_QEMU_TOOLS_ON_TARGET
+	bool "Install tools on target"
+	help
+	  Say 'y' here to also install QEMU tools (qemu-{img,io,nbd}) on the
+	  target.
+
+#config BR2_PREFER_STATIC_LIB
+#    select BR2_PACKAGE_QEMU_STATIC
+#
+#config BR2_PACKAGE_QEMU_STATIC
+#	bool "Build statically"
+#	help
+#	  Build static qemu executable(s).
+
+if QEMU_HAS_EMULS
+
+comment "Frontends"
+
+config BR2_PACKAGE_QEMU_VNC
+	bool "Enable VNC frontend"
+	select BR2_PACKAGE_VNC
+	help
+	  Say 'y' to enable the VNC frontend, that is, QEMU will act as a
+	  VNC server presenting the VM's display.
+
+config BR2_PACKAGE_QEMU_VNC_PNG
+	bool "PNG compression"
+	depends on BR2_PACKAGE_QEMU_VNC
+	select BR2_PACKAGE_LIBPNG
+
+config BR2_PACKAGE_QEMU_VNC_JPEG
+	bool "JPEG compression"
+	depends on BR2_PACKAGE_QEMU_VNC
+	select BR2_PACKAGE_JPEG
+
+# TLS does not work with static link, because the gnutls .pc is missing a
+# dependency on libintl... :-(
+config BR2_PACKAGE_QEMU_VNC_TLS
+	bool "TLS encryption"
+	depends on BR2_PACKAGE_QEMU_VNC
+	depends on !BR2_PACKAGE_QEMU_STATIC
+	select BR2_PACKAGE_GNUTLS
+
+comment "VNC TLS encryption does not work for static link"
+    depends on BR2_PACKAGE_QEMU_VNC && BR2_PACKAGE_QEMU_STATIC
+
+config BR2_PACKAGE_QEMU_SDL
+	bool "Enable SDL frontend"
+	select BR2_PACKAGE_SDL
+	help
+	  Say 'y' to enable the SDL frontend, that is, a graphical window
+	  presenting the VM's display.
+
+config BR2_PACKAGE_QEMU_CURSES
+	bool "Enable the curses frontend"
+	select BR2_PACKAGE_NCURSES
+	help
+	  Say 'y' to use curses to display the text-mode of VGA outpout.
+	  
+	  If the VM's graphic adapter does not support VGA text-mode, or it
+	  is in graphical mode, then nothing will be displayed with this
+	  frontend (although you can still use the SDL or VNC frontends to
+	  display the graphical output).
+
+config BR2_PACKAGE_QEMU_SPICE
+	bool "Enable Spice frontend"
+	depends on BR2_PACKAGE_SPICE
+	depends on !BR2_PACKAGE_QEMU_STATIC || BR2_PREFER_STATIC_LIB
+	help
+	  Say 'y' here to have QEMU support Spice as a (VNC-like) frontend.
+
+	  Note:
+	    Spice links against alsa-libs, but alsa-libs can't be built both
+	    shared and static at the same time, so we can not link with a
+	    static spice to get a static QEMU (BR2_PACKAGE_QEMU_STATIC) if
+	    buildroot as a whole does not also build only static libraries
+	    (BR2_PREFER_STATIC_LIB).
+
+if !BR2_PACKAGE_SPICE || ( BR2_PACKAGE_QEMU_STATIC && !BR2_PREFER_STATIC_LIB )
+comment "Spice support requires spice-server, and does not work for a static"
+comment "build of QEMU unless BR2_PREFER_STATIC_LIB is set, too"
+endif
+
+comment "Block backends"
+
+config BR2_PACKAGE_QEMU_VIRTFS
+	bool "Enable plan9 ressources using VirtFS"
+	select BR2_PACKAGE_QEMU_CAP
+	select BR2_PACKAGE_QEMU_ATTR
+	help
+	  Say 'y' here if you want QEMU to provide a plan9 virtual "share"
+	  accessible from the guest OS for relatively fast access to host
+	  files.
+	  
+	  This requires that the guest OS is capable of accessing plan9
+	  ressources (typically, in Linux, this is done by a network
+	  file-system called 9p, and can be accelerated by using the 9p
+	  virtio).
+
+config BR2_PACKAGE_QEMU_CURL
+	bool "Enable remote block-devices using cURL"
+	select BR2_PACKAGE_LIBCURL
+	help
+	  Say 'y' to access remote block-devices using libcurl.
+
+config BR2_PACKAGE_QEMU_ISCSI
+	bool "Enable remote block-devices using iSCSI"
+	select BR2_PACKAGE_LIBISCSI
+	help
+	  Say 'y' here to have QEMU use iSCSI targets as block-devices.
+
+config BR2_PACKAGE_QEMU_USBREDIR
+	bool "Enable USB redirection"
+	depends on BR2_PACKAGE_USBREDIR
+	help
+	  Say 'y' here to have QEMU support USB redirection over the network.
+
+comment "USB redirection requires usbredir"
+	depends on !BR2_PACKAGE_USBREDIR
+
+config BR2_PACKAGE_QEMU_AIO
+	bool "Enable AIO"
+	depends on BR2_PACKAGE_LIBAIO
+	help
+	  Say 'y' here to enable Asynchronous Input/Output (AIO).
+
+comment "AIO support depends on libaio"
+	depends on !BR2_PACKAGE_LIBAIO
+
+comment "Networking"
+
+config BR2_PACKAGE_QEMU_BLUEZ
+	bool "Enable BlueZ connectivity"
+	depends on BR2_PACKAGE_BLUEZ_UTILS
+	help
+	  Say 'y' here to enable BlueZ (bluetooth) connectivity in QEMU.
+
+comment "BlueZ connectivity depends on bluez-utils"
+	depends on !BR2_PACKAGE_BLUEZ_UTILS
+
+config BR2_PACKAGE_QEMU_VDE
+	bool "Enable VDE"
+	select BR2_PACKAGE_VDE2
+	help
+	  Say 'y' here to have QEMU connect to VDE (Virtual Distributed
+	  Ethernet) switches.
+
+comment "Sound"
+
+config BR2_PACKAGE_QEMU_SOUND_CARDS
+	string "Enable sound cards"
+	default "ac97 es1370 hda"
+	help
+	  Enter here the list of sound cards you want QEMU to emulate.
+	  The available sound cards are:
+	    ac97 es1370 sb16 cs4231a adlib gus hda
+	  
+	  The default is: ac97 es1370 hda
+	  
+	  Note: even if you say 'n' to both alsa and SDL drivers, below, QEMU
+	  always include the 'wav' driver, which stores the generated sound
+	  into a file, and the 'none' driver, which discards generated sound.
+
+config BR2_PACKAGE_QEMU_MIXEMU
+	bool "Enable mixer emulation"
+	help
+	  Say 'y' here to have QEMU emulate a mixer device.
+
+# Alsa can not build both shared and static libs at the same time.
+# But we may want to build QEMU staticaly, even though the global
+# BR2_PREFER_STATIC_LIB is not set. Disable that case.
+config BR2_PACKAGE_QEMU_SOUND_ALSA
+	bool "Enable sound via alsa"
+	depends on !BR2_PACKAGE_QEMU_STATIC || BR2_PREFER_STATIC_LIB
+	select BR2_PACKAGE_ALSA_LIB
+	help
+	  Say 'y' here to have QEMU play sound from the VMs via alsa.
+	  
+	  Note: this is only for system emulation, not user emulation.
+
+comment "Alsa sound static link works only if BR2_PREFER_STATIC is set"
+	depends on BR2_PACKAGE_QEMU_STATIC && !BR2_PREFER_STATIC_LIB
+
+config BR2_PACKAGE_QEMU_SOUND_SDL
+	bool "Enable sound via SDL"
+	select BR2_PACKAGE_QEMU_SDL # Requires that SDL frontend be selected
+	select BR2_PACKAGE_SDL
+	help
+	  Say 'y' here to have QEMU play sound from the VMs via SDL.
+	  
+	  Note: this is only for system emulation, not user emulation.
+
+comment "Misc. features"
+
+config BR2_PACKAGE_QEMU_FDT
+        bool "Enable FDT"
+        select BR2_PACKAGE_DTC
+        help
+          Say 'y' here to have QEMU capable of constructing Device Trees,
+          and passing them to the VMs.
+
+config BR2_PACKAGE_QEMU_UUID
+	bool "Enable VMs UUID"
+	depends on BR2_PACKAGE_UTIL_LINUX
+	select BR2_PACKAGE_UTIL_LINUX_LIBUUID
+	help
+	  Say 'y' here to have QEMU support UUIDs for VMs.
+
+comment "UUID support requires util-linux (for libuuid)"
+	depends on !BR2_PACKAGE_UTIL_LINUX
+
+config BR2_PACKAGE_QEMU_CAP
+	bool "Enable capabilities"
+	select BR2_PACKAGE_LIBCAP
+	select BR2_PACKAGE_LIBCAP_NG
+	help
+	  Say 'y' here if you want QEMU to support capabilities.
+
+config BR2_PACKAGE_QEMU_ATTR
+	bool "Enable attr and xattr"
+	help
+	  Say 'y' here to have QEMU support attributes (attr) and eXtended
+	  attibutes (xattr).
+
+config BR2_PACKAGE_QEMU_SECCOMP
+	bool "Enable seccomp filter"
+	select BR2_PACKAGE_LIBSECCOMP
+	help
+	  Say 'y' here to have QEMU to use the Linux kernel's seccomp filter,
+	  to more tightly confine the VMs.
+
+config BR2_PACKAGE_QEMU_BLOBS
+	bool "Install binary blobs"
+	default y
+	help
+	  Say 'y' here (the default) to install binary blobs (such as BIOS
+	  or firmwares for the different machines simulated by QEMU).
+	  Say 'n' to not install those blobs.
+	  
+	  Note: Some machines may be unbootable without those blobs.
+	        If unsure, say 'y'.
+	  
+	  Note2: This has nothing to do with the licensing of the blobs;
+	         some (most?) even have a free and/or open source license.
+
+config BR2_PACKAGE_QEMU_KEYMAPS
+	string "Keymaps to keep"
+	default "all"
+	help
+	  Enter the list of keymap(s) to keep. To keep many keymaps, you can
+	  use shell globs, or you can enter a space-separated list of keymaps:
+	    - empty to remove all keymaps
+	    - 'all' to keep all keymaps
+	    - 'fr*' to keep all french keymaps
+	    - 'de fr* en-*' for german, french and english keymaps
+	    - and so on (see the QEMU source for all supported keymaps)
+
+endif # QEMU_HAS_EMULS
+
+endif # BR2_PACKAGE_QEMU
