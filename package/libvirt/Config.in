@@ -3,6 +3,7 @@ comment "libvirt needs an (e)glibc toolchain"
 
 config BR2_PACKAGE_LIBVIRT
     bool "libvirt"
+    depends on BR2_TOOLCHAIN_USES_GLIBC
     select BR2_PACKAGE_YAJL
     select BR2_PACKAGE_LVM2
     select BR2_PACKAGE_LIBNL
