@@ -1,0 +1,15 @@
+comment "libvirt needs an (e)glibc toolchain"
+    depends on !BR2_TOOLCHAIN_USES_GLIBC
+
+config BR2_PACKAGE_LIBVIRT
+    bool "libvirt"
+    select BR2_PACKAGE_YAJL
+    select BR2_PACKAGE_LVM2
+    select BR2_PACKAGE_LIBNL
+    select BR2_PACKAGE_LIBXML2
+
+    help
+      libvirt is a toolkit to interact with the virtualization
+      capabilities of recent versions of Linux (and other OSes).
+
+      http://libvirt.org/
