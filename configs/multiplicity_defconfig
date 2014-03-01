@@ -1,0 +1,5 @@
+BR2_x86_64=y
+BR2_DEFCONFIG="$(CONFIG_DIR)/defconfig"
+# BR2_TARGET_GENERIC_GETTY is not set
+BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL)/board/multiplicity/fs-overlay/"
+BR2_ROOTFS_POST_BUILD_SCRIPT="$(BR2_EXTERNAL)/board/multiplicity/post-build.sh"
